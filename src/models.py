@@ -4,16 +4,35 @@ db = SQLAlchemy()
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(80), unique=False, nullable=False)
+    task = db.Column(db.String(120), unique=False, nullable=False)
+    done = db.Column(db.Boolean(), unique=False, nullable=False)
     is_active = db.Column(db.Boolean(), unique=False, nullable=False)
 
     def __repr__(self):
-        return '<User %r>' % self.username
+        return f'User is {self.task}, id: {self.id}, done: {self.done}' 
 
-    def serialize(self):
+    def to_dict(self):
         return {
             "id": self.id,
-            "email": self.email,
-            # do not serialize the password, its a security breach
+            "task": self.task,
+            "done": self.done,
         }
+
+    @classmethod
+    def get_all(cls):
+        tasks = cls.query.all()
+        return tasks
+
+    def create(self):
+        db.session.add(self)
+        db.session.commit()
+        return self
+    
+    def delete(self):
+        self._is_active = False
+        db.session.commit()
+        return self
+
+    # def delete(self):
+    #     db.session.delete(self)
+    #     db.session.commit()

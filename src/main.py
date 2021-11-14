@@ -6,6 +6,7 @@ from flask import Flask, request, jsonify, url_for
 from flask_migrate import Migrate
 from flask_swagger import swagger
 from flask_cors import CORS
+from sqlalchemy import exc
 from utils import APIException, generate_sitemap
 from admin import setup_admin
 from models import db, User
@@ -31,13 +32,35 @@ def sitemap():
     return generate_sitemap(app)
 
 @app.route('/user', methods=['GET'])
-def handle_hello():
+def get_task():
+    tasks = User.get_all()
+    all_tasks = [task.to_dict() for task in tasks]
+    return jsonify(all_tasks), 200
 
-    response_body = {
-        "msg": "Hello, this is your GET /user response "
-    }
 
-    return jsonify(response_body), 200
+@app.route('/user', methods=['POST'])
+def create_task():
+    new_task = request.json.get('task', None)
+
+    if not new_task:
+        return jsonify({'error': 'Missing parameters'}), 400
+
+    task = User(task=new_task)
+    try:
+        task_created = task.create()
+        return jsonify(task_created.to.dict()), 201
+
+    except exc.IntegrityError:
+        return jsonify({'error': 'Fail in data'}), 400
+
+@app.route('/user/<int:id>', methods=['DELETE'])
+def delete_task(id):
+   task_deleted = User.delete(id)
+    # if task_deleted:
+    #     # return jsonify(task.to_dict()), 200
+    #     return jsonify({'error': 'Task not found'}), 400
+
+
 
 # this only runs if `$ python src/main.py` is executed
 if __name__ == '__main__':
