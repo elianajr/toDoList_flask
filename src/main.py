@@ -9,7 +9,7 @@ from flask_cors import CORS
 from sqlalchemy import exc
 from utils import APIException, generate_sitemap
 from admin import setup_admin
-from models import db, User
+from models import db, Task, User
 #from models import Person
 
 app = Flask(__name__)
@@ -31,35 +31,64 @@ def handle_invalid_usage(error):
 def sitemap():
     return generate_sitemap(app)
 
-@app.route('/user', methods=['GET'])
-def get_task():
-    tasks = User.get_all()
-    all_tasks = [task.to_dict() for task in tasks]
-    return jsonify(all_tasks), 200
+# @app.route('/task', methods=['GET'])
+# def get_tasks():
+#     tasks = Task.get_all()
+#     all_tasks = [task.to_dict() for task in tasks]
+#     return jsonify(all_tasks), 200
+
+@app.route('/user/<int:id>/task', methods=['GET'])
+def get_user_tasks(id):
+    user = User.get_by_id(id)
+
+    if user:
+        tasks = Task.get_by_user(id)
+        tasks_dict = [task.to_dict() for task in tasks]
+        return jsonify(tasks_dict), 200
+    
+    return jsonify({'error': 'User not found'}), 404
+
+@app.route('/user/<int:id>/task', methods=['POST'])
+def create_user_task(id):
+    user = User.get_by_id(id)
+    label = request.json.get('label', None)
+
+    if user and label:
+        task = Task(label=label, done=False, user_id=id)
+        try:
+            task.create()
+            return jsonify(task.to_dict()), 201
+        except exc.IntegrityError:
+            return jsonify({'error': 'Fail in data'}), 400
+
+    return jsonify({'error': 'User not found or label is missing'}), 404
 
 
-@app.route('/user', methods=['POST'])
-def create_task():
-    new_task = request.json.get('task', None)
+# @app.route('/task/<int:id>', methods=['DELETE'])
+# def delete_user(id):
+#     task = Task.get_by_id(id)
+#     if task:
+#         task = task.delete()
+#         return jsonify(task.to_dict()), 200
+#     return jsonify({'error': 'Task not found'}), 400
 
-    if not new_task:
-        return jsonify({'error': 'Missing parameters'}), 400
+@app.route('/user/<int:id_user>/task/<int:id_task>', methods=['DELETE'])
+def delete_user_task(id_user, id_task):
+    user = User.get_by_id(id_user)
 
-    task = User(task=new_task)
-    try:
-        task_created = task.create()
-        return jsonify(task_created.to.dict()), 201
+    if user:
+        task = Task.get_by_id(id_task)
 
-    except exc.IntegrityError:
-        return jsonify({'error': 'Fail in data'}), 400
+        if task:
+            try:
+                task.delete()
+                return jsonify(task.to_dict()), 200
+            except exc.IntegrityError:
+                return jsonify({'Fail in operation'}), 400
+                
+        return jsonify({'error': 'Task not found'}), 404
 
-@app.route('/user/<int:id>', methods=['DELETE'])
-def delete_task(id):
-   task_deleted = User.delete(id)
-    # if task_deleted:
-    #     # return jsonify(task.to_dict()), 200
-    #     return jsonify({'error': 'Task not found'}), 400
-
+    return jsonify({'error': 'User not found'}), 404
 
 
 # this only runs if `$ python src/main.py` is executed
